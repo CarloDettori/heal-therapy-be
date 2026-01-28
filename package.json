@@ -1,0 +1,27 @@
+{
+  "name": "heal-therapy-be",
+  "version": "1.0.0",
+  "description": "",
+  "main": "server.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "start": "node --watch --env-file=.env server.js"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/CarloDettori/heal-therapy-be.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "module",
+  "bugs": {
+    "url": "https://github.com/CarloDettori/heal-therapy-be/issues"
+  },
+  "homepage": "https://github.com/CarloDettori/heal-therapy-be#readme",
+  "dependencies": {
+    "cors": "^2.8.6",
+    "express": "^5.2.1",
+    "mysql2": "^3.16.2"
+  }
+}

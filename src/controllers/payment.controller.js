@@ -1,12 +1,12 @@
-import { stripe } from '../config/stripe.js';
-import { db } from '../config/db.js';
-import { createToken } from '../services/token.service.js';
-import { sendBookingEmail } from '../services/email.service.js';
 
-/**
- * Crea una sessione Stripe Checkout
- * chiamata dal frontend
- */
+import { db } from '../config/db.js';
+import { createToken } from '../services/tooken.service.js';
+import { sendBookingEmail } from '../services/email.service.js';
+import Stripe from 'stripe';
+
+const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
+console.log('STRIPE KEY:', process.env.STRIPE_SECRET_KEY);
+
 export const createCheckoutSession = async (req, res) => {
     try {
         const { email } = req.body;
@@ -24,35 +24,41 @@ export const createCheckoutSession = async (req, res) => {
                     price_data: {
                         currency: 'eur',
                         product_data: {
-                            name: 'Video consulto medico'
+                            name: 'Videochiamata medica',
+                            description: 'Consulenza online'
                         },
-                        unit_amount: 10000 // €100.00
+                        unit_amount: 3000 // €30.00
                     },
                     quantity: 1
                 }
             ],
-            success_url: `${process.env.FRONTEND_URL}/success`,
-            cancel_url: `${process.env.FRONTEND_URL}/cancel`
+            success_url: `https://${process.env.CLIENT_URL}/success`,
+            cancel_url: `httpS://${process.env.CLIENT_URL}/cancel`
         });
 
         // Salviamo pagamento come pending
         await db.query(
-            `INSERT INTO payments (email, stripe_session_id, amount, status)
-       VALUES (?, ?, ?, 'pending')`,
-            [email, session.id, 10000]
+            'INSERT INTO payments (email, stripe_session_id, amount, status) VALUES (?, ?, ?, ?)',
+            [email, session.id, 10000, 'pending']
         );
 
+        //ritorna al checkout
         res.json({ url: session.url });
+
     } catch (err) {
-        console.error('Stripe checkout error:', err);
-        res.status(500).json({ error: 'Errore creazione pagamento' });
+        console.error('Stripe checkout error MESSAGE:', err.message);
+        console.error('Stripe checkout error FULL:', err);
+        res.status(500).json({
+            error: err.message
+        });
     }
 };
 
-/**
+/*
  * Webhook Stripe
  * chiamato SOLO da Stripe
  */
+
 export const stripeWebhook = async (req, res) => {
     const signature = req.headers['stripe-signature'];
     let event;

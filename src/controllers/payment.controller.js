@@ -32,8 +32,8 @@ export const createCheckoutSession = async (req, res) => {
                     quantity: 1
                 }
             ],
-            success_url: `https://${process.env.CLIENT_URL}/success`,
-            cancel_url: `httpS://${process.env.CLIENT_URL}/cancel`
+            success_url: `${process.env.FRONTEND_URL}/success`,
+            cancel_url: `${process.env.FRONTEND_URL}/cancel`
         });
 
         // Salviamo pagamento come pending

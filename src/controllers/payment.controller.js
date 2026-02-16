@@ -9,7 +9,16 @@ console.log('STRIPE KEY:', process.env.STRIPE_SECRET_KEY);
 
 export const createCheckoutSession = async (req, res) => {
     try {
-        const { email } = req.body;
+        const { email, visitType } = req.body;
+
+        const onlineEnabled = process.env.ENABLE_ONLINE_VISITS === 'true';
+
+        if (visitType === 'online' && !onlineEnabled) {
+            return res.status(400).json({
+                error: 'Le visite online sono temporaneamente disabilitate'
+            });
+        }
+
 
         if (!email) {
             return res.status(400).json({ error: 'Email mancante' });
@@ -17,17 +26,22 @@ export const createCheckoutSession = async (req, res) => {
 
         const session = await stripe.checkout.sessions.create({
             payment_method_types: ['card'],
+
             customer_email: email,
             mode: 'payment',
+            metadata: {
+                visitType: visitType
+            },
             line_items: [
                 {
                     price_data: {
                         currency: 'eur',
+                        unit_amount: 3000, // €30.00
                         product_data: {
-                            name: 'Videochiamata medica',
-                            description: 'Consulenza online'
+                            name: visitType === 'online'
+                                ? 'Videochiamata medica'
+                                : 'Visita in presenza',
                         },
-                        unit_amount: 3000 // €30.00
                     },
                     quantity: 1
                 }
@@ -38,8 +52,8 @@ export const createCheckoutSession = async (req, res) => {
 
         // Salviamo pagamento come pending
         await db.query(
-            'INSERT INTO payments (email, stripe_session_id, amount, status) VALUES (?, ?, ?, ?)',
-            [email, session.id, 10000, 'pending']
+            'INSERT INTO payments (email, stripe_session_id, amount, status, visit_type) VALUES (?, ?, ?, ?, ?)',
+            [email, session.id, 10000, 'pending', visitType]
         );
 
         //ritorna al checkout
@@ -101,6 +115,32 @@ export const stripeWebhook = async (req, res) => {
                 'UPDATE payments SET status = "paid" WHERE id = ?',
                 [payment.id]
             );
+
+            // Controlla se booking esiste già
+const [existingBooking] = await db.query(
+    'SELECT id FROM bookings WHERE payment_id = ?',
+    [payment.id]
+);
+
+if (!existingBooking.length) {
+    await db.query(
+        `INSERT INTO bookings (payment_id, email, visit_type)
+         VALUES (?, ?, ?)`,
+        [payment.id, payment.email, payment.visit_type]
+    );
+}
+
+            // Crea prenotazione
+            await db.query(
+                'INSERT INTO bookings (payment_id, email, visit_type, status) VALUES (?, ?, ?, ?)',
+                [
+                    payment.id,
+                    payment.email,
+                    session.metadata.visitType,
+                    'confirmed'
+                ]
+            );
+
 
             // Crea token di prenotazione
             const token = await createToken(payment.id);

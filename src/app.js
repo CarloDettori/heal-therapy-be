@@ -3,6 +3,7 @@ import cors from 'cors';
 
 import paymentsRoutes from './routes/payment.routes.js';
 import testRoutes from "./routes/test.routes.js";
+import bookingRoutes from './routes/booking.routes.js';
 
 const app = express();
 
@@ -22,6 +23,8 @@ app.use('/test', testRoutes);
 
 //console.log(process.env.STRIPE_SECRET_KEY.startsWith('sk_test_'));
 //console.log("CLIENT_URL:", process.env.CLIENT_URL);
+
+app.use('/api/bookings', bookingRoutes);
 
 app.get('/health', (req, res) => {
     res.json({ status: 'ok' });

@@ -3,7 +3,7 @@ import sgMail from '../config/sendgrid.js';
 export const sendBookingEmail = async (email, token) => {
     const msg = {
         to: email,
-        from: 'prenotazioni@clinica.it',
+        from: process.env.SENDGRID_FROM_EMAIL,
         subject: 'Prenota la tua videochiamata',
         html: `
       <p>Pagamento ricevuto.</p>
@@ -15,5 +15,5 @@ export const sendBookingEmail = async (email, token) => {
     `
     };
 
-    await sgMail.send(msg);
+    return await sgMail.send(msg);
 };

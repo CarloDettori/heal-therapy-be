@@ -1,9 +1,12 @@
 import express from 'express';
-import { verifyToken } from '../middleware/verifyToken.js';
-import { getBookingPage } from '../controllers/booking.controller.js';
+import { validateBookingToken, consumeBookingToken } from '../controllers/booking.controller.js';
 
 const router = express.Router();
 
-router.get('/prenota', verifyToken, getBookingPage);
+// Valida token (NON lo marca used)
+router.get('/token/validate', validateBookingToken);
+
+// Consuma token (lo marca used = true) – utile quando l’utente conferma/entra nella pagina prenotazione
+router.post('/token/consume', consumeBookingToken);
 
 export default router;

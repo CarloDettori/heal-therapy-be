@@ -8,7 +8,9 @@ const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
 console.log('STRIPE KEY:', process.env.STRIPE_SECRET_KEY);
 
 export const createCheckoutSession = async (req, res) => {
+   
     try {
+       
         const { email, visitType } = req.body;
 
         const onlineEnabled = process.env.ENABLE_ONLINE_VISITS === 'true';
@@ -55,13 +57,14 @@ export const createCheckoutSession = async (req, res) => {
             'INSERT INTO payments (email, stripe_session_id, amount, status, visit_type) VALUES (?, ?, ?, ?, ?)',
             [email, session.id, 10000, 'pending', visitType]
         );
-
+     
         //ritorna al checkout
         res.json({ url: session.url });
 
     } catch (err) {
         console.error('Stripe checkout error MESSAGE:', err.message);
         console.error('Stripe checkout error FULL:', err);
+        console.error('SendGrid full error:', e?.response?.body || e);
         res.status(500).json({
             error: err.message
         });
@@ -74,6 +77,7 @@ export const createCheckoutSession = async (req, res) => {
  */
 
 export const stripeWebhook = async (req, res) => {
+    console.log('WEBHOOK enter ');
     const signature = req.headers['stripe-signature'];
     let event;
 
@@ -83,6 +87,7 @@ export const stripeWebhook = async (req, res) => {
             signature,
             process.env.STRIPE_WEBHOOK_SECRET
         );
+        console.log('EVENT TYPE:', event.type);
     } catch (err) {
         console.error('Webhook signature error:', err.message);
         return res.status(400).send(`Webhook Error: ${err.message}`);
@@ -145,8 +150,16 @@ if (!existingBooking.length) {
             // Crea token di prenotazione
             const token = await createToken(payment.id);
 
-            // Invia email al paziente
-            await sendBookingEmail(payment.email, token);
+            //da cancellare
+            console.log("TOKEN CREATO:", token);
+            console.log('Invio email a:', payment.email);
+
+        try {
+            const resp = await sendBookingEmail(payment.email, token);
+            console.log('SendGrid OK:', resp);
+        } catch (e) {
+            console.error('SendGrid full error:', e?.response?.body || e);
+        }
         }
 
         res.json({ received: true });

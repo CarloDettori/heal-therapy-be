@@ -48,7 +48,7 @@ export const createCheckoutSession = async (req, res) => {
                     quantity: 1
                 }
             ],
-            success_url: `${process.env.FRONTEND_URL}/success`,
+            success_url: `${process.env.FRONTEND_URL}/success?session_id={CHECKOUT_SESSION_ID}`,
             cancel_url: `${process.env.FRONTEND_URL}/cancel`
         });
 
@@ -122,18 +122,18 @@ export const stripeWebhook = async (req, res) => {
             );
 
             // Controlla se booking esiste già
-const [existingBooking] = await db.query(
-    'SELECT id FROM bookings WHERE payment_id = ?',
-    [payment.id]
-);
+            const [existingBooking] = await db.query(
+            'SELECT id FROM bookings WHERE payment_id = ?',
+            [payment.id]
+            );
 
-if (!existingBooking.length) {
-    await db.query(
-        `INSERT INTO bookings (payment_id, email, visit_type)
-         VALUES (?, ?, ?)`,
-        [payment.id, payment.email, payment.visit_type]
-    );
-}
+        if (!existingBooking.length) {
+            await db.query(
+                `INSERT INTO bookings (payment_id, email, visit_type)
+                VALUES (?, ?, ?)`,
+            [payment.id, payment.email, payment.visit_type]
+            );
+        }
 
             // Crea prenotazione
             await db.query(
@@ -168,3 +168,53 @@ if (!existingBooking.length) {
         res.status(500).json({ error: 'Errore webhook Stripe' });
     }
 };
+
+export const getBookingLinkBySession = async (req, res) => {
+  try {
+    const { sessionId } = req.params;
+
+    const [pRows] = await db.query(
+      'SELECT * FROM payments WHERE stripe_session_id = ? LIMIT 1',
+      [sessionId]
+    );
+
+    if (!pRows.length) {
+      return res.status(404).json({ ok: false, error: 'Pagamento non trovato' });
+    }
+
+    const payment = pRows[0];
+
+    if (payment.status !== 'paid') {
+      return res.status(409).json({ ok: false, error: 'Pagamento non ancora confermato' });
+    }
+
+    const [tRows] = await db.query(
+      'SELECT token, used, expires_at FROM booking_tokens WHERE payment_id = ? ORDER BY id DESC LIMIT 1',
+      [payment.id]
+    );
+
+    if (!tRows.length) {
+      return res.status(404).json({ ok: false, error: 'Token non trovato' });
+    }
+
+    const t = tRows[0];
+
+    if (t.used) {
+      return res.status(410).json({ ok: false, error: 'Token già usato' });
+    }
+
+    if (new Date(t.expires_at) <= new Date()) {
+      return res.status(410).json({ ok: false, error: 'Token scaduto' });
+    }
+
+    return res.json({
+      ok: true,
+      bookingUrl: `${process.env.FRONTEND_URL}/prenota?token=${t.token}`,
+      token: t.token,
+    });
+  } catch (e) {
+    console.error('getBookingLinkBySession error:', e);
+    return res.status(500).json({ ok: false, error: 'Errore server' });
+  }
+};
+
